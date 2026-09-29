@@ -1,2 +1,40 @@
 # HardLinks
+
 A small Windows Forms tool for creating NTFS hard links with drag and drop.
+
+## Releases
+
+### v1.1
+
+**Open in File Explorer from the folder buttons.**
+
+Right-click any of the eight remembered-folder buttons to bring up a context menu with an **Open in File Explorer** option. It opens the folder that button points to, so you can check the result of a hard-link run or browse the target without leaving the app.
+
+Empty slots are disabled and show no menu.
+
+### v1.0
+
+**Initial release.** Create hard links to one or more files inside a target folder, without typing paths or commands.
+
+**How it works**
+
+1. Drop one or more files onto the top drop zone. The app lists the files it accepted. Dropping again replaces the previous selection.
+2. Choose the target folder in one of two ways:
+   - Drop a single folder onto the "Drop ONE target folder here" zone.
+   - Click one of the remembered-folder buttons.
+3. Click **Create hard links in the target folder**. The button is enabled only when at least one file and a target folder are set.
+
+Each hard link keeps the original file name. The info panel at the bottom reports the outcome: green when every link was created, red when some failed, together with the number created and the first error message.
+
+**Remembered folders**
+
+- The eight most used target folders appear as buttons in two rows of four, labeled with the folder name.
+- Every time a folder is set as the target, its use count goes up, and the list is sorted by that count.
+- The list is stored in `HardLinks.json` next to the executable and reloaded on startup.
+
+**Notes**
+
+- Windows only. Links are created with the Win32 `CreateHardLink` call.
+- A hard link must be on the same NTFS volume as the original file. Files on a different volume fail and are reported in the info panel.
+- Only files can be linked, not folders.
+- The window title shows the app version.
