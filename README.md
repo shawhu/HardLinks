@@ -4,6 +4,12 @@ A small Windows Forms tool for creating NTFS hard links with drag and drop.
 
 ## Releases
 
+### v1.2
+
+**Added post-creation checks**
+
+Added post-creation checks using File.Exists for each link successfully created. The lblInfo result now ends with [verified] when all requested links were created and found, or [failed to verify] otherwise.
+
 ### v1.1
 
 **Open in File Explorer from the folder buttons.**

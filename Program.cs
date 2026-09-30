@@ -156,16 +156,25 @@ class MainForm : Form
         btnCreate.Click += (s, e) =>
         {
             var failures = new List<string>();
+            var createdLinks = new List<string>();
             foreach (var file in files)
             {
                 var name = Path.GetFileName(file);
-                if (!CreateHardLink(Path.Combine(folder!, name), file, IntPtr.Zero))
+                var linkPath = Path.Combine(folder!, name);
+                if (CreateHardLink(linkPath, file, IntPtr.Zero))
+                    createdLinks.Add(linkPath);
+                else
                     failures.Add($"{name}: {new Win32Exception(Marshal.GetLastWin32Error()).Message}");
             }
+
+            var verificationFailures = createdLinks.Where(link => !File.Exists(link)).ToList();
+            var verificationStatus = failures.Count == 0 && verificationFailures.Count == 0
+                ? "[verified]"
+                : "[failed to verify]";
             if (failures.Count == 0)
-                SetInfo($"Created {files.Length} hard link(s) in {folder}", Color.LightGreen);
+                SetInfo($"Created {files.Length} hard link(s) in {folder} {verificationStatus}", Color.LightGreen);
             else
-                SetInfo($"Created {files.Length - failures.Count} of {files.Length}. First error - {failures[0]}", Color.Salmon);
+                SetInfo($"Created {files.Length - failures.Count} of {files.Length}. First error - {failures[0]} {verificationStatus}", Color.Salmon);
         };
     }
 
