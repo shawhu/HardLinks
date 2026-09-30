@@ -51,7 +51,9 @@ class MainForm : Form
     const int Slots = 14; // <-- number of stored folders, keep it a multiple of Columns
     const int Columns = 7;
     const int GridHeight = 150; // <-- height of the folder button area, change it here
-    Size FormSize = new Size(2000, 960);
+    Size FormSize = new Size(1800, 960);
+    bool RandomFormPosition = false;
+    Point FormPosition = new Point(-10, 0);
 
     static readonly string ConfigPath = Path.Combine(AppContext.BaseDirectory, "HardLinks.json");
     static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
@@ -96,6 +98,11 @@ class MainForm : Form
         Font = new Font(Font.FontFamily, FontSize);
         btnCreate.Font = new Font(Font.FontFamily, ButtonFontSize);
         ClientSize = FormSize;
+        if (!RandomFormPosition)
+        {
+            StartPosition = FormStartPosition.Manual;
+            Location = FormPosition;
+        }
 
         for (var c = 0; c < Columns; c++)
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / Columns));
