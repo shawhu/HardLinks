@@ -47,10 +47,11 @@ class MainForm : Form
     const int InfoHeight = 120; // <-- height of lblInfo, change it here
     const float FontSize = 12F; // <-- form font size, change it here
     const float ButtonFontSize = 16F; // <-- button font size, change it here
-    const int Slots = 8; // <-- number of stored folders, keep it a multiple of Columns
-    const int Columns = 4;
+    const float SlotFontSize = 8F; // <-- slot button font size, change it here
+    const int Slots = 14; // <-- number of stored folders, keep it a multiple of Columns
+    const int Columns = 7;
     const int GridHeight = 150; // <-- height of the folder button area, change it here
-    Size FormSize = new Size(1600, 960);
+    Size FormSize = new Size(2000, 960);
 
     static readonly string ConfigPath = Path.Combine(AppContext.BaseDirectory, "HardLinks.json");
     static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
@@ -100,10 +101,26 @@ class MainForm : Form
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / Columns));
         for (var r = 0; r < Slots / Columns; r++)
             grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100f / (Slots / Columns)));
-        slotMenu.Items.Add("Open in File Explorer", null, (s, e) => Process.Start(new ProcessStartInfo((string)slotMenu.SourceControl!.Tag!) { UseShellExecute = true }));
+
+        slotMenu.Items.Add(
+            "Open in File Explorer",
+            null,
+            (s, e) => Process.Start(
+                new ProcessStartInfo((string)slotMenu.SourceControl!.Tag!) { UseShellExecute = true }
+            )
+        );
+
         for (var i = 0; i < Slots; i++)
         {
-            var b = new Button { Dock = DockStyle.Fill, Enabled = false, AutoEllipsis = true, Margin = new Padding(4), ContextMenuStrip = slotMenu };
+            var b = new Button
+            {
+                Dock = DockStyle.Fill,
+                Enabled = false,
+                AutoEllipsis = true,
+                Margin = new Padding(4),
+                ContextMenuStrip = slotMenu,
+                Font = new Font(Font.FontFamily, SlotFontSize)
+            };
             b.Click += (s, e) => SetFolder((string)b.Tag!);
             slotButtons[i] = b;
             grid.Controls.Add(b, i % Columns, i / Columns);
