@@ -46,6 +46,7 @@ class MainForm : Form
 {
     const int InfoHeight = 120; // <-- height of lblInfo, change it here
     const float FontSize = 12F; // <-- form font size, change it here
+
     const float ButtonFontSize = 16F; // <-- button font size, change it here
     const float SlotFontSize = 8F; // <-- slot button font size, change it here
     const int Slots = 14; // <-- number of stored folders, keep it a multiple of Columns
@@ -54,9 +55,11 @@ class MainForm : Form
     Size FormSize = new Size(1800, 960);
     bool RandomFormPosition = false;
     Point FormPosition = new Point(-10, 0);
+    Point xButtonPosition = new Point(5, 0);
 
     static readonly string ConfigPath = Path.Combine(AppContext.BaseDirectory, "HardLinks.json");
     static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    static readonly Bitmap RemoveIcon = CreateRemoveIcon();
     readonly Label lblFiles = MakeZone("Drop files here");
     readonly Label lblFolder = MakeZone("Drop ONE target folder here");
     readonly TableLayoutPanel grid = new()
@@ -67,7 +70,9 @@ class MainForm : Form
         Margin = new Padding(8, 8, 8, 0)
     };
     readonly Button[] slotButtons = new Button[Slots];
+    readonly Button?[] slotRemoveButtons = new Button?[Slots];
     readonly ContextMenuStrip slotMenu = new();
+    readonly ToolTip slotToolTip = new();
     readonly RoundButton btnCreate = new()
     {
         Text = "Create hard links in the target folder",
@@ -212,6 +217,78 @@ class MainForm : Form
             slotButtons[i].Tag = has ? folders[i].FullPath : null;
             slotButtons[i].Text = has ? new DirectoryInfo(folders[i].FullPath).Name : "";
             slotButtons[i].Enabled = has;
+            if (has)
+            {
+                var path = folders[i].FullPath;
+                if (slotRemoveButtons[i] is null)
+                {
+                    var removeButton = new Button
+                    {
+                        Image = RemoveIcon,
+                        ImageAlign = ContentAlignment.BottomCenter,
+                        Size = new Size(28, 28),
+                        Location = new Point(slotButtons[i].ClientSize.Width - 28 + xButtonPosition.X, -10 + xButtonPosition.Y),
+                        Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                        BackColor = Color.Transparent,
+                        FlatStyle = FlatStyle.Flat,
+                        UseVisualStyleBackColor = false,
+                        AccessibleName = $"Remove {Path.GetFileName(path)} from remembered slots",
+                        Tag = path
+                    };
+                    removeButton.FlatAppearance.BorderSize = 1;
+                    removeButton.FlatAppearance.BorderColor = Color.Gray;
+                    removeButton.FlatAppearance.MouseOverBackColor = Color.MistyRose;
+                    removeButton.FlatAppearance.MouseDownBackColor = Color.LightCoral;
+                    removeButton.Click += (s, e) => RemoveFolderFromSlots((string)((Control)s!).Tag!);
+                    slotToolTip.SetToolTip(removeButton, $"Remove from remembered slots: {path}");
+                    slotButtons[i].Controls.Add(removeButton);
+                    removeButton.BringToFront();
+                    slotRemoveButtons[i] = removeButton;
+                }
+                else
+                {
+                    slotRemoveButtons[i]!.Tag = path;
+                    slotRemoveButtons[i]!.AccessibleName = $"Remove {Path.GetFileName(path)} from remembered slots";
+                    slotToolTip.SetToolTip(slotRemoveButtons[i]!, $"Remove from remembered slots: {path}");
+                }
+            }
+            else if (slotRemoveButtons[i] is { } removeButton)
+            {
+                slotButtons[i].Controls.Remove(removeButton);
+                removeButton.Dispose();
+                slotRemoveButtons[i] = null;
+            }
+        }
+    }
+
+    static Bitmap CreateRemoveIcon()
+    {
+        var icon = new Bitmap(16, 16);
+        using var graphics = Graphics.FromImage(icon);
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        graphics.Clear(Color.Transparent);
+        using var pen = new Pen(Color.Firebrick, 2.2F)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round
+        };
+        graphics.DrawLine(pen, 4, 4, 12, 12);
+        graphics.DrawLine(pen, 12, 4, 4, 12);
+        return icon;
+    }
+
+    void RemoveFolderFromSlots(string path)
+    {
+        folders.RemoveAll(f => string.Equals(f.FullPath, path, StringComparison.OrdinalIgnoreCase));
+        RefreshSlots();
+        try
+        {
+            File.WriteAllText(ConfigPath, JsonSerializer.Serialize(folders, JsonOptions));
+            SetInfo($"Removed from remembered slots: {path}", Color.LightGreen);
+        }
+        catch (Exception ex)
+        {
+            SetInfo($"Removed from slots in memory, but unable to update saved slots: {ex.Message}", Color.Salmon);
         }
     }
 
