@@ -134,8 +134,20 @@ class MainForm : Form
                 Font = new Font(Font.FontFamily, SlotFontSize)
             };
             b.Click += (s, e) => SetFolder((string)b.Tag!);
+            b.AllowDrop = true;
+            b.DragEnter += (s, e) => e.Effect = Paths(e) is [var p] && Directory.Exists(p) ? DragDropEffects.Copy : DragDropEffects.None;
+            b.DragDrop += (s, e) => ReplaceSlot((string)b.Tag!, Paths(e)![0]);
             slotButtons[i] = b;
             grid.Controls.Add(b, i % Columns, i / Columns);
+        }
+        void ReplaceSlot(string target, string dropped)
+        {
+            folders.RemoveAll(f => string.Equals(f.FullPath, dropped, StringComparison.OrdinalIgnoreCase) && !string.Equals(f.FullPath, target, StringComparison.OrdinalIgnoreCase));
+            var index = folders.FindIndex(f => string.Equals(f.FullPath, target, StringComparison.OrdinalIgnoreCase));
+            folders[index] = new FolderEntry(dropped, folders[index].Count);
+            File.WriteAllText(ConfigPath, JsonSerializer.Serialize(folders, JsonOptions));
+            RefreshSlots();
+            SetInfo($"Slot replaced: {target} -> {dropped}", Color.LightGreen);
         }
         RefreshSlots();
 
@@ -198,12 +210,15 @@ class MainForm : Form
         folder = path;
         lblFolder.Text = path;
         SetInfo($"Target folder set: {path}", Color.LightGreen);
-        var count = (folders.Find(f => string.Equals(f.FullPath, path, StringComparison.OrdinalIgnoreCase))?.Count ?? 0) + 1;
-        folders.RemoveAll(f => string.Equals(f.FullPath, path, StringComparison.OrdinalIgnoreCase));
-        if (folders.Count == Slots)
-            folders.RemoveAt(Slots - 1);
-        folders.Insert(0, new FolderEntry(path, count));
-        folders = folders.OrderByDescending(f => f.Count).ToList();
+        var i = folders.FindIndex(f => string.Equals(f.FullPath, path, StringComparison.OrdinalIgnoreCase));
+        if (i >= 0)
+            folders[i] = folders[i] with { Count = folders[i].Count + 1 };
+        else
+        {
+            if (folders.Count == Slots)
+                folders.RemoveAt(Slots - 1);
+            folders.Add(new FolderEntry(path, 1));
+        }
         File.WriteAllText(ConfigPath, JsonSerializer.Serialize(folders, JsonOptions));
         RefreshSlots();
         UpdateButton();
