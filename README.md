@@ -4,6 +4,14 @@ A small Windows Forms tool for creating NTFS hard links with drag and drop.
 
 ## Releases
 
+### v1.3
+
+**Replace remembered folders by dragging a new folder onto a slot button.**
+
+Each remembered-folder slot now accepts a direct drag-and-drop replacement: drag a single folder onto any filled slot button and it replaces that slot's target path immediately. The change is saved right away and the slot button updates to the new folder name without needing to clear or recreate the slot.
+
+This makes it easy to update remembered targets in place while keeping the slot order and counts intact.
+
 ### v1.2
 
 **Added post-creation checks**
