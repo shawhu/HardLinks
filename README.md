@@ -48,6 +48,8 @@ Each hard link keeps the original file name. The info panel at the bottom report
 
 **Notes**
 
+- When all created link paths pass the existing post-creation check, the app plays a short, ascending C-major success flourish.
+- When link creation fails or the existing post-creation check fails, the app plays a short, descending failure cue.
 - Windows only. Links are created with the Win32 `CreateHardLink` call.
 - A hard link must be on the same NTFS volume as the original file. Files on a different volume fail and are reported in the info panel.
 - Only files can be linked, not folders.

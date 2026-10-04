@@ -40,13 +40,11 @@ class RoundButton : Button
         TextRenderer.DrawText(g, Text, font, ClientRectangle, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
     }
 }
-
 record FolderEntry(string FullPath, int Count);
 class MainForm : Form
 {
     const int InfoHeight = 120; // <-- height of lblInfo, change it here
     const float FontSize = 12F; // <-- form font size, change it here
-
     const float ButtonFontSize = 16F; // <-- button font size, change it here
     const float SlotFontSize = 8F; // <-- slot button font size, change it here
     const int Slots = 14; // <-- number of stored folders, keep it a multiple of Columns
@@ -56,10 +54,14 @@ class MainForm : Form
     bool RandomFormPosition = false;
     Point FormPosition = new Point(-10, 0);
     Point xButtonPosition = new Point(5, 0);
+    float SuccessSoundVolume = 0.99F; // <-- volume of the success sound, change it here (0.0 to 1.0)
+    float FailedSoundVolume = 0.5F; // <-- volume of the failure sound, change it here (0.0 to 1.0)
+
 
     static readonly string ConfigPath = Path.Combine(AppContext.BaseDirectory, "HardLinks.json");
     static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
     static readonly Bitmap RemoveIcon = CreateRemoveIcon();
+    readonly SoundEffects soundEffects;
     readonly Label lblFiles = MakeZone("Drop files here");
     readonly Label lblFolder = MakeZone("Drop ONE target folder here");
     readonly TableLayoutPanel grid = new()
@@ -98,6 +100,7 @@ class MainForm : Form
 
     public MainForm()
     {
+        soundEffects = new SoundEffects(SuccessSoundVolume, FailedSoundVolume);
         Text = $"HardLinks v{typeof(MainForm).Assembly.GetName().Version!.ToString(2)}";
         Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         Font = new Font(Font.FontFamily, FontSize);
@@ -196,9 +199,18 @@ class MainForm : Form
                 ? "[verified]"
                 : "[failed to verify]";
             if (failures.Count == 0)
+            {
                 SetInfo($"Created {files.Length} hard link(s) in {folder} {verificationStatus}", Color.LightGreen);
+                if (verificationFailures.Count == 0)
+                    soundEffects.PlaySuccess();
+                else
+                    soundEffects.PlayFailure();
+            }
             else
+            {
                 SetInfo($"Created {files.Length - failures.Count} of {files.Length}. First error - {failures[0]} {verificationStatus}", Color.Salmon);
+                soundEffects.PlayFailure();
+            }
         };
     }
 
