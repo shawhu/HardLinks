@@ -227,8 +227,17 @@ class MainForm : Form
             folders[i] = folders[i] with { Count = folders[i].Count + 1 };
         else
         {
-            if (folders.Count == Slots)
-                folders.RemoveAt(Slots - 1);
+            if (folders.Count >= Slots)
+            {
+                var leastUsedIndex = 0;
+                for (var j = 1; j < folders.Count; j++)
+                {
+                    if (folders[j].Count < folders[leastUsedIndex].Count)
+                        leastUsedIndex = j;
+                }
+
+                folders.RemoveAt(leastUsedIndex);
+            }
             folders.Add(new FolderEntry(path, 1));
         }
         File.WriteAllText(ConfigPath, JsonSerializer.Serialize(folders, JsonOptions));
