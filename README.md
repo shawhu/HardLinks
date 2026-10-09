@@ -42,7 +42,8 @@ Each hard link keeps the original file name. The info panel at the bottom report
 
 **Remembered folders**
 
-- The eight most used target folders appear as buttons in two rows of four, labeled with the folder name.
+- Remembered target folders appear in the slot grid, labeled with the folder name and a recursive count of `.mp4`, `.mkv`, `.wmv`, and `.avi` files.
+- Video counts refresh on startup, when the saved folder list changes, and after hard links are created. Counts are case-insensitive; unavailable folder scans are indicated in the slot and explained by its tooltip.
 - Every time a folder is set as the target, its use count goes up, and the list is sorted by that count.
 - The list is stored in `HardLinks.json` next to the executable and reloaded on startup.
 

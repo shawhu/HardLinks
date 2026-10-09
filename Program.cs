@@ -47,9 +47,9 @@ class MainForm : Form
     const float FontSize = 12F; // <-- form font size, change it here
     const float ButtonFontSize = 16F; // <-- button font size, change it here
     const float SlotFontSize = 8F; // <-- slot button font size, change it here
-    const int Slots = 14; // <-- number of stored folders, keep it a multiple of Columns
+    const int Slots = 21; // <-- number of stored folders, keep it a multiple of Columns
     const int Columns = 7;
-    const int GridHeight = 150; // <-- height of the folder button area, change it here
+    const int GridHeight = 300; // <-- height of the folder button area, change it here
     Size FormSize = new Size(1800, 960);
     bool RandomFormPosition = false;
     Point FormPosition = new Point(-10, 0);
@@ -61,6 +61,10 @@ class MainForm : Form
     static readonly string ConfigPath = Path.Combine(AppContext.BaseDirectory, "HardLinks.json");
     static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
     static readonly Bitmap RemoveIcon = CreateRemoveIcon();
+    static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp4", ".mkv", ".wmv", ".avi"
+    };
     readonly SoundEffects soundEffects;
     readonly Label lblFiles = MakeZone("Drop files here");
     readonly Label lblFolder = MakeZone("Drop ONE target folder here");
@@ -72,9 +76,9 @@ class MainForm : Form
         Margin = new Padding(8, 8, 8, 0)
     };
     readonly Button[] slotButtons = new Button[Slots];
+    readonly Label[] slotVideoCountLabels = new Label[Slots];
     readonly Button?[] slotRemoveButtons = new Button?[Slots];
     readonly ContextMenuStrip slotMenu = new();
-    readonly ToolTip slotToolTip = new();
     readonly RoundButton btnCreate = new()
     {
         Text = "Create hard links in the target folder",
@@ -136,6 +140,18 @@ class MainForm : Form
                 ContextMenuStrip = slotMenu,
                 Font = new Font(Font.FontFamily, SlotFontSize)
             };
+            var videoCountLabel = new ClickThroughLabel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 20,
+                BackColor = Color.DarkGray,
+                ForeColor = Color.White,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Enabled = true,
+                Font = b.Font
+            };
+            slotVideoCountLabels[i] = videoCountLabel;
+            b.Controls.Add(videoCountLabel);
             b.Click += (s, e) => SetFolder((string)b.Tag!);
             b.AllowDrop = true;
             b.DragEnter += (s, e) => e.Effect = Paths(e) is [var p] && Directory.Exists(p) ? DragDropEffects.Copy : DragDropEffects.None;
@@ -148,7 +164,7 @@ class MainForm : Form
             folders.RemoveAll(f => string.Equals(f.FullPath, dropped, StringComparison.OrdinalIgnoreCase) && !string.Equals(f.FullPath, target, StringComparison.OrdinalIgnoreCase));
             var index = folders.FindIndex(f => string.Equals(f.FullPath, target, StringComparison.OrdinalIgnoreCase));
             folders[index] = new FolderEntry(dropped, folders[index].Count);
-            File.WriteAllText(ConfigPath, JsonSerializer.Serialize(folders, JsonOptions));
+            SaveFolders();
             RefreshSlots();
             SetInfo($"Slot replaced: {target} -> {dropped}", Color.LightGreen);
         }
@@ -211,6 +227,7 @@ class MainForm : Form
                 SetInfo($"Created {files.Length - failures.Count} of {files.Length}. First error - {failures[0]} {verificationStatus}", Color.Salmon);
                 soundEffects.PlayFailure();
             }
+            RefreshSlots();
         };
     }
 
@@ -240,7 +257,7 @@ class MainForm : Form
             }
             folders.Add(new FolderEntry(path, 1));
         }
-        File.WriteAllText(ConfigPath, JsonSerializer.Serialize(folders, JsonOptions));
+        SaveFolders();
         RefreshSlots();
         UpdateButton();
     }
@@ -256,6 +273,13 @@ class MainForm : Form
             if (has)
             {
                 var path = folders[i].FullPath;
+                var (videoCount, error) = CountVideos(path);
+                var countLabel = slotVideoCountLabels[i];
+                countLabel.Text = videoCount is { } count
+                    ? $"{count} {(count == 1 ? "video" : "videos")}"
+                    : "Count unavailable";
+                countLabel.AccessibleName = countLabel.Text;
+                countLabel.AccessibleDescription = error ?? path;
                 if (slotRemoveButtons[i] is null)
                 {
                     var removeButton = new Button
@@ -276,7 +300,6 @@ class MainForm : Form
                     removeButton.FlatAppearance.MouseOverBackColor = Color.MistyRose;
                     removeButton.FlatAppearance.MouseDownBackColor = Color.LightCoral;
                     removeButton.Click += (s, e) => RemoveFolderFromSlots((string)((Control)s!).Tag!);
-                    slotToolTip.SetToolTip(removeButton, $"Remove from remembered slots: {path}");
                     slotButtons[i].Controls.Add(removeButton);
                     removeButton.BringToFront();
                     slotRemoveButtons[i] = removeButton;
@@ -285,16 +308,44 @@ class MainForm : Form
                 {
                     slotRemoveButtons[i]!.Tag = path;
                     slotRemoveButtons[i]!.AccessibleName = $"Remove {Path.GetFileName(path)} from remembered slots";
-                    slotToolTip.SetToolTip(slotRemoveButtons[i]!, $"Remove from remembered slots: {path}");
                 }
             }
-            else if (slotRemoveButtons[i] is { } removeButton)
+            else
             {
-                slotButtons[i].Controls.Remove(removeButton);
-                removeButton.Dispose();
-                slotRemoveButtons[i] = null;
+                if (slotRemoveButtons[i] is { } removeButton)
+                {
+                    slotButtons[i].Controls.Remove(removeButton);
+                    removeButton.Dispose();
+                    slotRemoveButtons[i] = null;
+                }
+                slotVideoCountLabels[i].Text = "";
+                slotVideoCountLabels[i].AccessibleName = "";
+                slotVideoCountLabels[i].AccessibleDescription = "";
             }
         }
+    }
+
+    static (long? Count, string? Error) CountVideos(string path)
+    {
+        if (!Directory.Exists(path))
+            return (null, "The folder does not exist or is inaccessible.");
+
+        try
+        {
+            var count = Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories)
+                .LongCount(file => VideoExtensions.Contains(Path.GetExtension(file)));
+            return (count, null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            return (null, ex.Message);
+        }
+    }
+
+    void SaveFolders()
+    {
+        File.WriteAllText(ConfigPath, JsonSerializer.Serialize(folders, JsonOptions));
+        folders = LoadFolders();
     }
 
     static Bitmap CreateRemoveIcon()
@@ -316,16 +367,16 @@ class MainForm : Form
     void RemoveFolderFromSlots(string path)
     {
         folders.RemoveAll(f => string.Equals(f.FullPath, path, StringComparison.OrdinalIgnoreCase));
-        RefreshSlots();
         try
         {
-            File.WriteAllText(ConfigPath, JsonSerializer.Serialize(folders, JsonOptions));
+            SaveFolders();
             SetInfo($"Removed from remembered slots: {path}", Color.LightGreen);
         }
         catch (Exception ex)
         {
             SetInfo($"Removed from slots in memory, but unable to update saved slots: {ex.Message}", Color.Salmon);
         }
+        RefreshSlots();
     }
 
     static Label MakeZone(string text) => new()
