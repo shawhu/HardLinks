@@ -47,10 +47,10 @@ class MainForm : Form
     const float FontSize = 12F; // <-- form font size, change it here
     const float ButtonFontSize = 16F; // <-- button font size, change it here
     const float SlotFontSize = 8F; // <-- slot button font size, change it here
-    const int Slots = 21; // <-- number of stored folders, keep it a multiple of Columns
+    const int Slots = 28; // <-- number of stored folders, keep it a multiple of Columns
     const int Columns = 7;
-    const int GridHeight = 300; // <-- height of the folder button area, change it here
-    Size FormSize = new Size(1800, 960);
+    const int GridHeight = 440; // <-- height of the folder button area, change it here
+    Size FormSize = new Size(1800, 1200);
     bool RandomFormPosition = false;
     Point FormPosition = new Point(-10, 0);
     Point xButtonPosition = new Point(5, 0);
@@ -322,6 +322,7 @@ class MainForm : Form
                 slotVideoCountLabels[i].AccessibleName = "";
                 slotVideoCountLabels[i].AccessibleDescription = "";
             }
+            slotVideoCountLabels[i].Refresh();
         }
     }
 
