@@ -40,6 +40,31 @@ class RoundButton : Button
         TextRenderer.DrawText(g, Text, font, ClientRectangle, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
     }
 }
+
+class SlotButton : Button
+{
+    const int BarHeight = 20;
+    string countText = "";
+
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public string CountText
+    {
+        get => countText;
+        set
+        {
+            countText = value;
+            Invalidate();
+        }
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        var bar = new Rectangle(0, Height - BarHeight, Width, BarHeight);
+        e.Graphics.FillRectangle(Brushes.DarkGray, bar);
+        TextRenderer.DrawText(e.Graphics, countText, Font, bar, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+    }
+}
 record FolderEntry(string FullPath, int Count);
 class MainForm : Form
 {
@@ -50,7 +75,7 @@ class MainForm : Form
     const int Slots = 28; // <-- number of stored folders, keep it a multiple of Columns
     const int Columns = 7;
     const int GridHeight = 440; // <-- height of the folder button area, change it here
-    Size FormSize = new Size(1800, 1200);
+    Size FormSize = new Size(1800, 1000);
     bool RandomFormPosition = false;
     Point FormPosition = new Point(-10, 0);
     Point xButtonPosition = new Point(5, 0);
@@ -75,8 +100,7 @@ class MainForm : Form
         RowCount = Slots / Columns,
         Margin = new Padding(8, 8, 8, 0)
     };
-    readonly Button[] slotButtons = new Button[Slots];
-    readonly Label[] slotVideoCountLabels = new Label[Slots];
+    readonly SlotButton[] slotButtons = new SlotButton[Slots];
     readonly Button?[] slotRemoveButtons = new Button?[Slots];
     readonly ContextMenuStrip slotMenu = new();
     readonly RoundButton btnCreate = new()
@@ -131,7 +155,7 @@ class MainForm : Form
 
         for (var i = 0; i < Slots; i++)
         {
-            var b = new Button
+            var b = new SlotButton
             {
                 Dock = DockStyle.Fill,
                 Enabled = false,
@@ -140,18 +164,6 @@ class MainForm : Form
                 ContextMenuStrip = slotMenu,
                 Font = new Font(Font.FontFamily, SlotFontSize)
             };
-            var videoCountLabel = new ClickThroughLabel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 20,
-                BackColor = Color.DarkGray,
-                ForeColor = Color.White,
-                TextAlign = ContentAlignment.MiddleCenter,
-                Enabled = true,
-                Font = b.Font
-            };
-            slotVideoCountLabels[i] = videoCountLabel;
-            b.Controls.Add(videoCountLabel);
             b.Click += (s, e) => SetFolder((string)b.Tag!);
             b.AllowDrop = true;
             b.DragEnter += (s, e) => e.Effect = Paths(e) is [var p] && Directory.Exists(p) ? DragDropEffects.Copy : DragDropEffects.None;
@@ -204,6 +216,23 @@ class MainForm : Form
             {
                 var name = Path.GetFileName(file);
                 var linkPath = Path.Combine(folder!, name);
+                var sourceRank = RestoredRank(name);
+                if (File.Exists(linkPath))
+                {
+                    try
+                    {
+                        var existingPath = Directory.EnumerateFiles(folder!)
+                            .FirstOrDefault(path => string.Equals(Path.GetFileName(path), name, StringComparison.OrdinalIgnoreCase));
+                        if (existingPath is not null && sourceRank >= RestoredRank(Path.GetFileName(existingPath)))
+                            File.Delete(existingPath);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+                    {
+                        failures.Add($"{name}: {ex.Message}");
+                        continue;
+                    }
+                }
+
                 if (CreateHardLink(linkPath, file, IntPtr.Zero))
                     createdLinks.Add(linkPath);
                 else
@@ -233,6 +262,16 @@ class MainForm : Form
 
     static List<FolderEntry> LoadFolders() =>
     File.Exists(ConfigPath) ? JsonSerializer.Deserialize<List<FolderEntry>>(File.ReadAllText(ConfigPath)) ?? [] : [];
+
+    static int RestoredRank(string fileName)
+    {
+        var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+        if (nameWithoutExtension.EndsWith("_RESTORED", StringComparison.Ordinal))
+            return 2;
+        if (nameWithoutExtension.EndsWith("_restored", StringComparison.Ordinal))
+            return 1;
+        return 0;
+    }
 
     void SetFolder(string path)
     {
@@ -273,13 +312,10 @@ class MainForm : Form
             if (has)
             {
                 var path = folders[i].FullPath;
-                var (videoCount, error) = CountVideos(path);
-                var countLabel = slotVideoCountLabels[i];
-                countLabel.Text = videoCount is { } count
+                var (videoCount, _) = CountVideos(path);
+                slotButtons[i].CountText = videoCount is { } count
                     ? $"{count} {(count == 1 ? "video" : "videos")}"
                     : "Count unavailable";
-                countLabel.AccessibleName = countLabel.Text;
-                countLabel.AccessibleDescription = error ?? path;
                 if (slotRemoveButtons[i] is null)
                 {
                     var removeButton = new Button
@@ -318,11 +354,8 @@ class MainForm : Form
                     removeButton.Dispose();
                     slotRemoveButtons[i] = null;
                 }
-                slotVideoCountLabels[i].Text = "";
-                slotVideoCountLabels[i].AccessibleName = "";
-                slotVideoCountLabels[i].AccessibleDescription = "";
+                slotButtons[i].CountText = "";
             }
-            slotVideoCountLabels[i].Refresh();
         }
     }
 
