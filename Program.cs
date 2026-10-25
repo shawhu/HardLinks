@@ -4,6 +4,7 @@ using System.Drawing.Drawing2D;
 using System.Text.Json;
 using System.Text.Encodings.Web;
 using System.Diagnostics;
+using System.Globalization;
 
 class RoundButton : Button
 {
@@ -258,6 +259,7 @@ class MainForm : Form
             }
             RefreshSlots();
         };
+        FormClosed += (s, e) => SortAndSaveFolders();
     }
 
     static List<FolderEntry> LoadFolders() =>
@@ -380,6 +382,16 @@ class MainForm : Form
     {
         File.WriteAllText(ConfigPath, JsonSerializer.Serialize(folders, JsonOptions));
         folders = LoadFolders();
+    }
+
+    void SortAndSaveFolders()
+    {
+        var chineseComparer = StringComparer.Create(CultureInfo.GetCultureInfo("zh-CN"), ignoreCase: true);
+        folders = folders
+            .OrderBy(f => new DirectoryInfo(f.FullPath).Name, chineseComparer)
+            .ThenBy(f => new DirectoryInfo(f.FullPath).Name, StringComparer.Ordinal)
+            .ToList();
+        SaveFolders();
     }
 
     static Bitmap CreateRemoveIcon()
